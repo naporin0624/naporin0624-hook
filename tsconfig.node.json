@@ -1,0 +1,8 @@
+{
+  "compilerOptions": {
+    "module": "NodeNext",
+    "composite": true,
+    "moduleResolution": "Node"
+  },
+  "include": ["vitest.config.ts", "setup.ts", "rollup.config.js"]
+}
