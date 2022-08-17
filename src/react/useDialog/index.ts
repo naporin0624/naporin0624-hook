@@ -1,8 +1,7 @@
+import { ok, err } from "neverthrow";
 import { useCallback, useMemo, useState } from "react";
 
-import { success, fail } from "../../result";
-
-import type { Result } from "../../result";
+import type { Result } from "neverthrow";
 
 type DialogState<T> = T extends Record<string, unknown>
   ? ({ open: true } & T) | ({ open: false } & Partial<T>)
@@ -23,12 +22,16 @@ type State<Input, Output> = {
 
 type RequireOrOptional<T> = T extends undefined ? [] : [value: T];
 
+export interface HandleDialog<T> {
+  result: Result<T, unknown>;
+  hideDialog: () => void;
+}
+
 type Dialog<Input, Output> = {
   props: DialogState<Input>;
-  showDialog: (...input: RequireOrOptional<Input>) => {
-    result: Promise<Result<Output, unknown>>;
-    hideDialog: () => void;
-  };
+  showDialog: (
+    ...input: RequireOrOptional<Input>
+  ) => Promise<HandleDialog<Output>>;
   onOk: (...input: RequireOrOptional<Output>) => void;
   onCancel: () => void;
 };
@@ -53,10 +56,10 @@ export const useDialog = <
   }, []);
 
   const showDialog: Dialog<ModalInput, ModalOutput>["showDialog"] = useCallback(
-    (...args) => {
+    async (...args) => {
       const [props] = args;
 
-      const result = new Promise<Result<ModalOutput, undefined>>(
+      const result = await new Promise<Result<ModalOutput, undefined>>(
         (resolve, reject) => {
           setDialogState((previous) => ({
             ...previous,
@@ -76,14 +79,14 @@ export const useDialog = <
     (...args) => {
       const [value] = args;
 
-      dialogState.resolve?.(success(value as ModalOutput));
+      dialogState.resolve?.(ok(value as ModalOutput));
     },
     [dialogState]
   );
 
   const onCancel: Dialog<ModalInput, ModalOutput>["onCancel"] =
     useCallback(() => {
-      dialogState.resolve?.(fail());
+      dialogState.resolve?.(err(undefined));
     }, [dialogState]);
 
   return useMemo(

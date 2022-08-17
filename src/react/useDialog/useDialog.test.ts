@@ -1,10 +1,12 @@
 import { act, renderHook } from "@testing-library/react";
-
-import { success, fail } from "../../result";
+import { ok, err } from "neverthrow";
 
 import { useDialog } from ".";
 
-import type { Result } from "../../result";
+import type { HandleDialog } from ".";
+
+const mockHandleDialog = <T = undefined>() =>
+  Promise.resolve<HandleDialog<T>>(null as unknown as HandleDialog<T>);
 
 test.concurrent("set initialData", () => {
   const props = { open: true, hoge: "huga" };
@@ -27,20 +29,23 @@ test.concurrent("open dialog", () => {
   expect(result.current.props.open).toEqual(true);
 });
 
-test.concurrent("toggle open state", () => {
+test.concurrent("toggle open state", async () => {
   const { result } = renderHook(() => useDialog());
   expect(result.current.props.open).toEqual(false);
+  let promise: Promise<HandleDialog<undefined>> = mockHandleDialog();
 
-  let hideDialog: (() => void) | undefined = undefined;
   act(() => {
-    hideDialog = result.current.showDialog().hideDialog;
+    promise = result.current.showDialog();
   });
-
   expect(result.current.props.open).toEqual(true);
 
   act(() => {
     result.current.onOk();
-    hideDialog?.();
+  });
+
+  await act(async () => {
+    const handleDialog = await promise;
+    handleDialog.hideDialog();
   });
 
   expect(result.current.props.open).toEqual(false);
@@ -65,28 +70,28 @@ test.concurrent("change props", () => {
 
 test.concurrent("receive data from dialog", async () => {
   const { result } = renderHook(() => useDialog<undefined, number>());
-  let promise: Promise<Result<number, unknown>> | undefined = undefined;
-
+  let promise: Promise<HandleDialog<number>> = mockHandleDialog<number>();
   act(() => {
-    promise = result.current.showDialog().result;
+    promise = result.current.showDialog();
   });
+
   act(() => {
     result.current.onOk(1);
   });
 
-  await expect(promise).resolves.toEqual(success(1));
+  await expect(promise.then((p) => p.result)).resolves.toEqual(ok(1));
 });
 
 test.concurrent("receive error from dialog", async () => {
   const { result } = renderHook(() => useDialog<undefined, number>());
-  let promise: Promise<Result<number, unknown>> | undefined = undefined;
-
+  let promise: Promise<HandleDialog<number>> = mockHandleDialog<number>();
   act(() => {
-    promise = result.current.showDialog().result;
+    promise = result.current.showDialog();
   });
+
   act(() => {
     result.current.onCancel();
   });
 
-  await expect(promise).resolves.toEqual(fail());
+  await expect(promise.then((p) => p.result)).resolves.toEqual(err(undefined));
 });
